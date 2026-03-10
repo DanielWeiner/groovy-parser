@@ -1,0 +1,22 @@
+{
+  "name": "groovy-parser",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "watch": "watchman watch . && find watchman/* -name '*.json' -exec bash -c 'cat {} | watchman -j' ';'"
+  },
+  "devDependencies": {
+    "@types/moo": "^0.5.10",
+    "@types/nearley": "^2.11.5",
+    "@types/node": "^25.3.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "moo": "^0.5.2",
+    "nearley": "^2.20.1"
+  }
+}

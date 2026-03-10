@@ -1,0 +1,9 @@
+["trigger", ".", {
+  "name": "on-source-change",
+  "expression": ["anyof", 
+    ["match", "src/*.ts", "wholename"],
+    ["match", "tsconfig.json", "wholename"],
+    ["match", "package.json", "wholename"]
+  ],
+  "command": ["bash", "-c", "test -s src/groovy.ne.ts && npx tsc 2>&1 | tee sandbox/warnings.txt"]
+}]

@@ -1,0 +1,5 @@
+["trigger", ".", {
+  "name": "on-dist-change",
+  "expression": ["match", "dist/*", "wholename"],
+  "command": ["node", "."]
+}]

@@ -1,0 +1,7 @@
+["trigger", ".", {
+  "name": "on-grammar-change",
+  "expression": ["match", "src/groovy.ne", "wholename"],
+  "command": [
+    "bash", "-c", "echo -n > sandbox/warnings.txt\nnpx nearleyc src/groovy.ne -o src/groovy.ne.ts 2>&1 | tee sandbox/warnings.txt"
+  ]
+}]

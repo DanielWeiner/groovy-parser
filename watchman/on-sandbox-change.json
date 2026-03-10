@@ -1,0 +1,5 @@
+["trigger", ".", {
+  "name": "on-sandbox-change",
+  "expression": ["match", "sandbox/input.txt", "wholename"],
+  "command": ["node", "."]
+}]
