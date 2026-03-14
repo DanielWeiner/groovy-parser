@@ -1,12 +1,12 @@
 import { readFile, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import * as nearley from "nearley";
-import grammar, { setAstNodeProvider } from "./groovy.ne";
+import grammar, { setParseTreeNodeProvider } from "./groovy.ne";
 import { EOL } from "node:os";
 import { md5 } from "./stringUtils";
-import { AstNodeProvider } from './astNodeProvider';
-import { TreeBuilder } from './tree';
-import { AstSpanProvider } from "./span";
+import { ParseTreeNodeProvider } from './parseTreeNodeProvider';
+import { SyntaxTreeBuilder } from './syntaxTree';
+import { ParseTreeSpanProvider } from "./parseTreeSpanProvider";
 
 const INPUT_PATH = path.join(__dirname, "..", "sandbox", "input.txt");
 const OUTPUT_PATH = path.join(__dirname, "..", "sandbox", "output.json");
@@ -75,8 +75,8 @@ function formatMessage(time: Date, message: string): string {
     return `[${time.toISOString()}] ${message}`;
 }
 
-function generateParseOutput(input: string, warnings: string[], nodeProvider: AstNodeProvider): Output {
-    setAstNodeProvider(nodeProvider);
+function generateParseOutput(input: string, warnings: string[], nodeProvider: ParseTreeNodeProvider): Output {
+    setParseTreeNodeProvider(nodeProvider);
     const { results, error, time, duration } = parse(input);
     const hashes = new Map<string, any>();
     const counts = new Map<string, number>();
@@ -124,9 +124,9 @@ async function getInputs(): Promise<Inputs> {
 
 async function main() {
     const { text, warnings } = await getInputs();
-    const spanProvider = new AstSpanProvider(text);
-    const nodeProvider = new AstNodeProvider(spanProvider);
-    const treeBuilder = new TreeBuilder(spanProvider);
+    const spanProvider = new ParseTreeSpanProvider(text);
+    const nodeProvider = new ParseTreeNodeProvider(spanProvider);
+    const treeBuilder = new SyntaxTreeBuilder(spanProvider);
     const { result, message } = generateParseOutput(text, warnings, nodeProvider);
     const fileOutput = formatObj({
         ...result,

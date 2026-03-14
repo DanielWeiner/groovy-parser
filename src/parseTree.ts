@@ -18,8 +18,8 @@ export interface Terminal {
     length: number;
 }
 
-export type AstNode = Terminal | Nonterminal
-export type SyntaxNode = AstNode | Token
+export type ParseTreeNode = Terminal | Nonterminal
+export type SyntaxNode = ParseTreeNode | Token
 export type RawPostprocessorArgScalar = SyntaxNode | null | void | undefined;
 export type RawPostprocessorArg = RawPostprocessorArgScalar | RawPostprocessorArg[] | Iterable<RawPostprocessorArg>;
 
@@ -32,7 +32,7 @@ export function* concat(arg: RawPostprocessorArg): IterableIterator<SyntaxNode> 
     for (const value of arg) if (value) yield* concat(value);
 }
 
-function getNodeOfKind(node: AstNode, ...kinds: string[]): AstNode | null {
+function getNodeOfKind(node: ParseTreeNode, ...kinds: string[]): ParseTreeNode | null {
     return kinds.includes(node.kind) ? node : null;
 }
 

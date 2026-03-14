@@ -141,17 +141,17 @@ declare var SAFE_CHAIN_DOT: any;
 declare var NL: any;
  
 import lexer from './lexer';
-import { AstNodeProvider, Postprocessor } from './astNodeProvider';
-import { getNodeOfKindLeftPosition, getNodeOfKindRightPosition } from './ast';
+import { ParseTreeNodeProvider, Postprocessor } from './parseTreeNodeProvider';
+import { getNodeOfKindLeftPosition, getNodeOfKindRightPosition } from './parseTree';
 const nil = () => null;
 
 // There isn't an easy way to provide context to the parser, so a global variable will have to do
-let astNodeProvider: AstNodeProvider | undefined;
-export const setAstNodeProvider = (provider: AstNodeProvider) => { astNodeProvider = provider; } 
-const getAstNodeProvider = () => astNodeProvider!
+let parseTreeNodeProvider: ParseTreeNodeProvider | undefined;
+export const setParseTreeNodeProvider = (provider: ParseTreeNodeProvider) => { parseTreeNodeProvider = provider; } 
+const getParseTreeNodeProvider = () => parseTreeNodeProvider!
 
-const nonterminal = AstNodeProvider.nonterminal(getAstNodeProvider);
-const terminal = AstNodeProvider.terminal(getAstNodeProvider);
+const nonterminal = ParseTreeNodeProvider.nonterminal(getParseTreeNodeProvider);
+const terminal = ParseTreeNodeProvider.terminal(getParseTreeNodeProvider);
 
 /*
 * Rejects a new expression followed by a closure in a command chain, to avoid ambiguity with a new 

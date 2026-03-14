@@ -1,4 +1,4 @@
-import { SyntaxNode, isToken } from "./ast";
+import { SyntaxNode, isToken } from "./parseTree";
 
 interface Span {
     offset: number;
@@ -13,7 +13,7 @@ function getLength(node: SyntaxNode): number {
     return node.length;
 }
 
-export class AstSpanProvider {
+export class ParseTreeSpanProvider {
     readonly #text: string
     constructor(text: string) {
         this.#text = text;

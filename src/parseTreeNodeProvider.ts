@@ -1,8 +1,8 @@
-import { Token, SyntaxNode, Terminal, Nonterminal, RawPostprocessorArg, concat } from './ast'
+import { Token, SyntaxNode, Terminal, Nonterminal, RawPostprocessorArg, concat } from './parseTree'
 import type { Postprocessor as NearleyPostprocessor } from 'nearley';
 export type Postprocessor = (...args: Parameters<NearleyPostprocessor>) => any;
-import { AstSpanProvider } from './span';
-type NodeProviderFn = () => AstNodeProvider;
+import { ParseTreeSpanProvider as ParseTreeSpanProvider } from './parseTreeSpanProvider';
+type NodeProviderFn = () => ParseTreeNodeProvider;
 interface NodeConfig {
     name: string;
     text?: boolean;
@@ -34,15 +34,15 @@ const createNonterminal = (kind: string, parts: SyntaxNode[], offset: number, le
 
 const takeAll: Postprocessor = ((args: any[] = []) => concat(args)) as Postprocessor;
 
-export class AstNodeProvider {
-    #spanProvider: AstSpanProvider;
+export class ParseTreeNodeProvider {
+    #spanProvider: ParseTreeSpanProvider;
 
-    constructor(spanProvider: AstSpanProvider) {
+    constructor(spanProvider: ParseTreeSpanProvider) {
         this.#spanProvider = spanProvider;
     }
 
-    static terminal = (getNodeProvider: NodeProviderFn): AstNodeProvider['terminal'] => (...args) => (...nearleyArgs) => getNodeProvider().terminal(...args)(...nearleyArgs);
-    static nonterminal = (getNodeProvider: NodeProviderFn): AstNodeProvider['nonterminal'] => (...args) => (...nearleyArgs) => getNodeProvider().nonterminal(...args)(...nearleyArgs);
+    static terminal = (getNodeProvider: NodeProviderFn): ParseTreeNodeProvider['terminal'] => (...args) => (...nearleyArgs) => getNodeProvider().terminal(...args)(...nearleyArgs);
+    static nonterminal = (getNodeProvider: NodeProviderFn): ParseTreeNodeProvider['nonterminal'] => (...args) => (...nearleyArgs) => getNodeProvider().nonterminal(...args)(...nearleyArgs);
 
     terminal(config: string | NodeConfig): Postprocessor {
         return ([tokenOrTokens]: (Token[]|Token)[] = []) => {

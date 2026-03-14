@@ -1,62 +1,62 @@
-import { Nonterminal, isNonterminal, getNodeOfKindLeftPosition, isTerminal, SyntaxNode, isToken } from "./ast";
-import { AstSpanProvider } from "./span";
+import { Nonterminal, isNonterminal, getNodeOfKindLeftPosition, isTerminal, SyntaxNode, isToken } from "./parseTree";
+import { ParseTreeSpanProvider } from "./parseTreeSpanProvider";
 
-interface TreeNode {
+interface SyntaxTreeNode {
     kind: string;
     offset: number;
     length: number;
     text: string;
 }
 
-type PackageDeclarationNode = TreeNode & {
+type PackageDeclarationNode = SyntaxTreeNode & {
     name: string;
 }
 
-type ImportDeclarationNode = TreeNode & {
+type ImportDeclarationNode = SyntaxTreeNode & {
     name: string;
     spread: boolean;
 }
 
-type StatementNode = TreeNode & {
+type StatementNode = SyntaxTreeNode & {
     kind: string;
 }
 
-type PathExpressionNode = TreeNode & {
-    primary: TreeNode;
-    parts: TreeNode[]
+type PathExpressionNode = SyntaxTreeNode & {
+    primary: SyntaxTreeNode;
+    parts: SyntaxTreeNode[]
 }
-type VariableDeclaratorNode = TreeNode & {
-    variable: TreeNode;
-    initializer: TreeNode | null;
+type VariableDeclaratorNode = SyntaxTreeNode & {
+    variable: SyntaxTreeNode;
+    initializer: SyntaxTreeNode | null;
 }
-type VariableDeclarationNode = TreeNode & {
-    modifiers: TreeNode[];
-    type: TreeNode;
-    declarators: TreeNode[];
-}
-
-type ParExpressionNode = TreeNode & {
-    expression: TreeNode
+type VariableDeclarationNode = SyntaxTreeNode & {
+    modifiers: SyntaxTreeNode[];
+    type: SyntaxTreeNode;
+    declarators: SyntaxTreeNode[];
 }
 
-type ClosureNode = TreeNode & {
-    parameters: TreeNode[];
-    statements: TreeNode[];
+type ParExpressionNode = SyntaxTreeNode & {
+    expression: SyntaxTreeNode
 }
 
-type AssignmentExpressionNode = TreeNode & {
-    target: TreeNode;
-    operator: TreeNode;
-    value: TreeNode;
+type ClosureNode = SyntaxTreeNode & {
+    parameters: SyntaxTreeNode[];
+    statements: SyntaxTreeNode[];
 }
 
-type BinaryOperationExpressionNode = TreeNode & {
-    left: TreeNode;
-    operator: TreeNode;
-    right:  TreeNode;
+type AssignmentExpressionNode = SyntaxTreeNode & {
+    target: SyntaxTreeNode;
+    operator: SyntaxTreeNode;
+    value: SyntaxTreeNode;
 }
 
-type CommandExpressionNode = TreeNode;
+type BinaryOperationExpressionNode = SyntaxTreeNode & {
+    left: SyntaxTreeNode;
+    operator: SyntaxTreeNode;
+    right:  SyntaxTreeNode;
+}
+
+type CommandExpressionNode = SyntaxTreeNode;
 
 type ProgramNode = {
     packageDeclaration: PackageDeclarationNode | null;
@@ -66,13 +66,13 @@ type ProgramNode = {
 
 const isNode = (kind: string) => (node: SyntaxNode) => !isToken(node) && node.kind === kind;
 const isTerminalWithToken = (type: string) => (node: SyntaxNode) => isTerminal(node) && node.token.type === type;
-export class TreeBuilder {
-    readonly #spanProvider: AstSpanProvider;
-    constructor(spanProvider: AstSpanProvider) {
+export class SyntaxTreeBuilder {
+    readonly #spanProvider: ParseTreeSpanProvider;
+    constructor(spanProvider: ParseTreeSpanProvider) {
         this.#spanProvider = spanProvider;
     }
 
-    #buildSpan(kind: string, nodes: SyntaxNode[]): TreeNode {
+    #buildSpan(kind: string, nodes: SyntaxNode[]): SyntaxTreeNode {
         const { offset, length } = this.#spanProvider.getSpan(nodes)!
         const text = this.#spanProvider.getText(offset, length);
         return {
@@ -83,7 +83,7 @@ export class TreeBuilder {
         };
     }
 
-    #buildDefaultNode<T extends TreeNode>(tree: SyntaxNode, ext?: Partial<T>): T {
+    #buildDefaultNode<T extends SyntaxTreeNode>(tree: SyntaxNode, ext?: Partial<T>): T {
         if (isToken(tree)) {
             return {
                 kind: 'token',
@@ -103,7 +103,7 @@ export class TreeBuilder {
         } as T;
     }
     
-    #build(tree: SyntaxNode): TreeNode {
+    #build(tree: SyntaxNode): SyntaxTreeNode {
         if (isToken(tree) || isTerminal(tree)) return this.#buildDefaultNode(tree);
         switch (tree.kind) {
             case 'commandExpression':
@@ -193,9 +193,9 @@ export class TreeBuilder {
 
     #buildLocalVariableDeclaration(tree: Nonterminal): VariableDeclarationNode {
         type VariableDeclarationBuildState = { 
-            type: TreeNode | null;
-            declarators:TreeNode[];
-            modifiers: TreeNode[];
+            type: SyntaxTreeNode | null;
+            declarators:SyntaxTreeNode[];
+            modifiers: SyntaxTreeNode[];
         }
         
         const { declarators, modifiers, type } = tree.parts.values().reduce(({ type, declarators, modifiers }, part): VariableDeclarationBuildState => {
@@ -239,11 +239,11 @@ export class TreeBuilder {
         } as ClosureNode);
     }
 
-    #buildPrimary(tree: Nonterminal): TreeNode {
+    #buildPrimary(tree: Nonterminal): SyntaxTreeNode {
         return this.#build(tree.parts[0] as Nonterminal);
     }
 
-    #buildPathExpression(tree: Nonterminal): TreeNode {
+    #buildPathExpression(tree: Nonterminal): SyntaxTreeNode {
         const { lastSpan, parts } = tree.parts.slice(1).reduce(({ lastSpan, parts }, part) => {
             if (isToken(part) || isTerminal(part) || part.kind === 'namePart') {
                 return { 
@@ -261,7 +261,7 @@ export class TreeBuilder {
                 lastSpan: [],
                 parts: [...parts, ...newParts]
             };
-        }, { lastSpan: [] as SyntaxNode[], parts: [] as TreeNode[] });
+        }, { lastSpan: [] as SyntaxNode[], parts: [] as SyntaxTreeNode[] });
         if (lastSpan.length > 0) {
             parts.push(this.#buildSpan('pathPart', lastSpan));
         }
