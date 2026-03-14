@@ -1,7 +1,7 @@
 @{% 
 import lexer from './lexer';
 import { AstNodeProvider, Postprocessor } from './astNodeProvider';
-import { Nonterminal, getNodeOfKindLeftPosition, getNodeOfKindRightPosition } from './ast';
+import { getNodeOfKindLeftPosition, getNodeOfKindRightPosition } from './ast';
 const nil = () => null;
 
 // There isn't an easy way to provide context to the parser, so a global variable will have to do
@@ -12,14 +12,14 @@ const getAstNodeProvider = () => astNodeProvider!
 const nonterminal = AstNodeProvider.nonterminal(getAstNodeProvider);
 const terminal = AstNodeProvider.terminal(getAstNodeProvider);
 
-/**
+/*
 * Rejects a new expression followed by a closure in a command chain, to avoid ambiguity with a new 
 * expression followed by an anonymous inner class.
 */
 const rejectInvalidNewCommandArg: Postprocessor = (data, loc, reject) => {
     const newExpr = getNodeOfKindLeftPosition(data, 'newExpression');
     if (!newExpr) return data;
-    const closure = getNodeOfKindRightPosition(data, 'closure') as Nonterminal | null;
+    const closure = getNodeOfKindRightPosition(data, 'closure');
     if (closure) return reject;
     return data;
 }
@@ -43,8 +43,10 @@ asBody[rule] -> $rule {% nonterminal('body') %}
 anyOf2[a, b] -> $a $b | $a | $b
 anyOf3[a, b, c] -> anyOf2[anyOf2[$a, $b], $c] 
 
-exprTypeAssign[ft] -> variableNames nls op[%ASSIGN] nls statementExpression {% nonterminal('variableAssignmentExpression') %}
-                    | $ft nls assignOp nls enhancedStatementExpression {% nonterminal('assignmentExpression') %}
+statementTypeAssign[expr] -> variableNames nls op[%ASSIGN] nls statementExpression {% nonterminal('assignmentExpression') %}
+                           | $expr nls assignOp nls enhancedStatementExpression {% nonterminal('assignmentExpression') %}
+
+exprTypeAssign[ft] -> statementTypeAssign[$ft]
                     | $ft
 
 exprTypeTern[type, ft] -> $ft nls punc[%QUESTION] nls $type nls punc[%COLON] nls $type {% nonterminal('ternaryExpression') %}
@@ -131,8 +133,8 @@ typeDeclaration -> classOrInterfaceModifiers:? classDeclaration {% nonterminal('
 classBody -> punc[%LBRACE] nls classBodyDeclarations sep:? punc[%RBRACE] {% nonterminal('classBody') %}
            | punc[%LBRACE] sep:? punc[%RBRACE] {% nonterminal('classBody') %}
 
-enumBody -> punc[%LBRACE] nls enumBodyContents sep:? punc[%RBRACE] {% nonterminal('enumBody') %}
-           | punc[%LBRACE] sep:? punc[%RBRACE] {% nonterminal('enumBody') %}
+enumBody -> punc[%LBRACE] sep:? enumBodyContents sep:? punc[%RBRACE] {% nonterminal('enumBody') %}
+          | punc[%LBRACE] sep:? punc[%RBRACE] {% nonterminal('enumBody') %}
 
 annotationDeclarationBody -> punc[%LBRACE] nls annotationBodyDeclarations sep:? punc[%RBRACE]  {% nonterminal('annotationBody') %}
                            | punc[%LBRACE] sep:? punc[%RBRACE] {% nonterminal('annotationBody') %}
@@ -160,6 +162,7 @@ classDeclarationPermits -> (nls kw[%PERMITS] nls typeList):?
 
 enumBodyContents -> enumConstants (sep classBodyDeclarations):?
                   | enumConstants nls punc[%COMMA] (sep classBodyDeclarations):?
+                  | classBodyDeclarations
 
 enumConstants -> enumConstant (punc[%COMMA] nls enumConstant):*
 
@@ -207,13 +210,14 @@ fieldDeclaration -> variableDeclaration
 modifiers -> modifier
            | modifiers nls modifier
 
-modifier -> classOrInterfaceModifier
-          | kw[%NATIVE]
-          | kw[%SYNCHRONIZED]
-          | kw[%TRANSIENT]
-          | kw[%VOLATILE]
-          | kw[%DEF]
-          | kw[%VAR]
+modifier ->( classOrInterfaceModifier
+           | kw[%NATIVE]
+           | kw[%SYNCHRONIZED]
+           | kw[%TRANSIENT]
+           | kw[%VOLATILE]
+           | kw[%DEF]
+           | kw[%VAR]
+           ) {% nonterminal('modifier') %}       
 
 classOrInterfaceModifiers -> classOrInterfaceModifier (nls classOrInterfaceModifier):* nls
 
@@ -257,9 +261,16 @@ type -> ( arrayType
         | scalarType
         ) {% nonterminal('type') %}
 
+ambiguousType -> ( ambiguousArrayType
+                 | ambiguousScalarType
+                 ) {% nonterminal('type') %}      
+
 arrayType -> scalarType dim0:+  {% nonterminal('arrayType') %}
 
 scalarType -> annotations:? typeCore {% nonterminal('scalarType') %}
+
+ambiguousArrayType -> ambiguousScalarType dim0:+  {% nonterminal('arrayType') %}
+ambiguousScalarType -> ambiguousTypeCore {% nonterminal('scalarType') %}
 
 unambiguousType -> annotations typeCore dim0:*
                  | unambiguousReferenceType dim0:*
@@ -268,9 +279,15 @@ typeCore -> kw[%VOID]
           | primitiveType
           | referenceType
 
+ambiguousTypeCore -> kw[%VOID]
+                   | primitiveType
+                   | ambiguousReferenceType
+
 referenceType -> qualifiedClassName typeArguments:?
 
 unambiguousReferenceType -> qualifiedClassName typeArguments
+
+ambiguousReferenceType -> qualifiedClassName
 
 primitiveType -> %BuiltInPrimitiveType {% terminal('primitiveType') %}
 
@@ -348,11 +365,11 @@ formalParameterList -> (formalParameter | thisFormalParameter) (punc[%COMMA] nls
 
 thisFormalParameter -> type kw[%THIS]
 
-formalParameter -> variableModifiers:? type:? ellipsis:? variableDeclaratorId formalParameterDefault:?
+formalParameter -> variableModifiers:? type:? ellipsis:? variableDeclaratorId formalParameterDefault:? {% nonterminal('formalParameter') %}
 
 ellipsis -> punc[%ELLIPSIS]
 
-formalParameterDefault -> nls op[%ASSIGN] nls expression
+formalParameterDefault -> nls op[%ASSIGN] nls expression {% nonterminal('formalParameterDefault') %}
 
                      
 anyVariableDeclaration -> modifiers nls type:? variableDeclarators
@@ -363,21 +380,24 @@ variableDeclaration -> anyVariableDeclaration
 
 localVariableDeclaration ->( anyVariableDeclaration
                            | unambiguousType variableDeclarators
+                           | ambiguousType nls variableDeclaratorsAssign
                            ){% nonterminal('localVariableDeclaration') %}
 
-variableDeclarators -> variableDeclarator (punc[%COMMA] nls variableDeclarator):*
+variableDeclarators -> variableDeclarator (punc[%COMMA] nls variableDeclarator):* {% nonterminal('variableDeclarators') %}
+variableDeclaratorsAssign -> (variableDeclarator (punc[%COMMA] nls variableDeclarator):* punc[%COMMA] nls):? variableDeclaratorAssign {% nonterminal('variableDeclarators') %}
 
-variableDeclarator -> variableDeclaratorId (nls op[%ASSIGN] nls variableInitializer):?
+variableDeclarator -> variableDeclaratorId (nls op[%ASSIGN] nls variableInitializer):? {% nonterminal('variableDeclarator') %}
+variableDeclaratorAssign -> variableDeclaratorId nls op[%ASSIGN] nls variableInitializer {% nonterminal('variableDeclarator') %}
 
 variableDeclaratorId -> identifier
 
-variableInitializer -> enhancedStatementExpression
+variableInitializer -> enhancedStatementExpression {% nonterminal('variableInitializer') %}
 
 typeNamePairs -> punc[%LPAREN] typeNamePair (punc[%COMMA] typeNamePair):* punc[%RPAREN]
 
 typeNamePair -> type:? variableDeclaratorId
 
-variableNames -> punc[%LPAREN] variableDeclaratorId (punc[%COMMA] variableDeclaratorId):+ punc[%RPAREN]
+variableNames -> punc[%LPAREN] variableDeclaratorId (punc[%COMMA] variableDeclaratorId):+ punc[%RPAREN] {% nonterminal('variableNames') %}
 
 block -> punc[%LBRACE] sep:? blockStatements:? punc[%RBRACE]
 
@@ -387,21 +407,19 @@ blockStatements -> blockStatement (sep blockStatement):* sep:?
 
 blockStatement -> statement
 
-assignStatement -> variableNames nls op[%ASSIGN] nls enhancedStatementExpression {% nonterminal('variableAssignmentStatement') %}
-                 | exprTern nls assignOp nls enhancedStatementExpression {% nonterminal('assignmentStatement') %}
-                 | type nls variableDeclarators nls op[%ASSIGN] nls enhancedStatementExpression {% nonterminal('variableAssignmentStatement') %}
-
+assignStatement -> statementTypeAssign[exprTern]
+                 
 statement -> ( conditionalStatement
              | loopStatement
              | tryCatchStatement
-             | kw[%SYNCHRONIZED] expressionInPar nls asBlock[block]
-             | kw[%RETURN] expression
-             | kw[%RETURN]
-             | kw[%THROW] expression
+             | kw[%SYNCHRONIZED] expressionInPar nls asBlock[block] {% nonterminal('synchronizedStatement') %}
+             | kw[%RETURN] expression {% nonterminal('returnStatement') %}
+             | kw[%RETURN] {% nonterminal('returnStatement') %}
+             | kw[%THROW] expression {% nonterminal('throwStatement') %}
              | breakStatement
              | continueStatement
              | yieldStatement
-             | identifier punc[%COLON] nls statement
+             | identifier punc[%COLON] nls statement {% nonterminal('labeledStatement') %}
              | assertStatement
              | localVariableDeclaration
              | statementExpression
@@ -595,7 +613,7 @@ atom -> kw[%THIS] {% nonterminal('thisExpression') %}
       | kw[%SUPER] {% nonterminal('superExpression') %}
       | parExpression 
       | newExpression
-      | closureOrLambdaExpression
+      | lambdaExpression
       | list
       | map
 
@@ -628,14 +646,16 @@ commandPathExpressionTail -> cmdPathExpression commandArguments commandPathExpre
 
 commandArguments -> cmdArgumentList {% nonterminal('commandArguments') %}
 
-cmdArgumentList -> nls closureOrLambdaExpression punc[%COMMA] argumentList
-                 | arguments punc[%COMMA] argumentList
-                 | cmdFirstArgumentListElement (punc[%COMMA] nls argumentListElement):* {% nonterminal('commandArgumentList') %}
+cmdArgumentList -> cmdFirstArgumentListElement (punc[%COMMA] nls cmdArgumentListTail):? {% nonterminal('commandArgumentList') %}
+
+cmdArgumentListTail -> nls closureOrLambdaExpression punc[%COMMA] cmdArgumentListTail
+                     | arguments punc[%COMMA] cmdArgumentListTail
+                     | cmdArgumentListElement (punc[%COMMA] nls cmdArgumentListElement):*
 
 cmdFirstArgumentListElement -> cmdFirstArgExpression
                              | namedArg
 
-primary ->( identifier typeArguments:?
+primary ->( identifier
           | builtInType
           | literal
           | gstring
@@ -785,6 +805,9 @@ argumentList -> firstArgumentListElement (punc[%COMMA] nls argumentListElement):
 
 firstArgumentListElement -> expressionListElement_spread
                           | namedArg {% nonterminal('firstAgumentListElement') %}
+
+cmdArgumentListElement -> punc[%MUL]:? cmdExpression {% nonterminal('cmdArgumentListElement') %}
+                        | namedPropertyArg {% nonterminal('cmdArgumentListElement') %}
 
 argumentListElement -> expressionListElement_spread
                      | namedPropertyArg {% nonterminal('argumentListElement') %}
